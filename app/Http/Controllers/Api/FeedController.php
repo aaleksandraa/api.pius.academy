@@ -114,31 +114,24 @@ class FeedController extends Controller
     {
         $this->authorize('delete', $feedPost);
 
-        try {
-            // Delete associated question or work if exists
-            if ($feedPost->post_type === 'question') {
-                Question::where('feed_post_id', $feedPost->id)->delete();
-            }
-            
-            if ($feedPost->post_type === 'work') {
-                StudentWork::where('feed_post_id', $feedPost->id)->delete();
-            }
-
-            // Delete all comments
-            $feedPost->comments()->delete();
-
-            // Delete the post
-            $feedPost->delete();
-
-            return response()->json([
-                'message' => 'Objava je uspješno obrisana.',
-            ]);
-        } catch (\Exception $e) {
-            \Log::error('Error deleting feed post: ' . $e->getMessage());
-            return response()->json([
-                'message' => 'Greška pri brisanju objave.',
-            ], 500);
+        // Delete associated question or work if exists
+        if ($feedPost->post_type === 'question') {
+            Question::where('feed_post_id', $feedPost->id)->delete();
         }
+        
+        if ($feedPost->post_type === 'work') {
+            StudentWork::where('feed_post_id', $feedPost->id)->delete();
+        }
+
+        // Delete all comments
+        $feedPost->comments()->delete();
+
+        // Delete the post
+        $feedPost->delete();
+
+        return response()->json([
+            'message' => 'Objava je uspješno obrisana.',
+        ]);
     }
 
     public function togglePin(FeedPost $feedPost): JsonResponse

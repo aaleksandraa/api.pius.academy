@@ -6,12 +6,10 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
-use Spatie\MediaLibrary\HasMedia;
-use Spatie\MediaLibrary\InteractsWithMedia;
 
-class StudentWork extends Model implements HasMedia
+class StudentWork extends Model
 {
-    use HasFactory, InteractsWithMedia;
+    use HasFactory;
 
     protected $fillable = [
         'student_id',
@@ -35,14 +33,5 @@ class StudentWork extends Model implements HasMedia
     public function feedback(): HasMany
     {
         return $this->hasMany(WorkFeedback::class, 'work_id')->orderBy('created_at');
-    }
-
-    public function registerMediaCollections(): void
-    {
-        $this->addMediaCollection('images')
-            ->singleFile();
-
-        $this->addMediaCollection('files')
-            ->singleFile();
     }
 }

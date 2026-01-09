@@ -87,27 +87,22 @@ class QuestionController extends Controller
     {
         $this->authorize('delete', $question);
         
-        try {
-            // Delete associated feed post if exists
-            if ($question->feed_post_id) {
-                $feedPost = FeedPost::find($question->feed_post_id);
-                if ($feedPost) {
-                    $feedPost->comments()->delete();
-                    $feedPost->delete();
-                }
+        // Delete associated feed post if exists
+        if ($question->feed_post_id) {
+            $feedPost = FeedPost::find($question->feed_post_id);
+            if ($feedPost) {
+                $feedPost->comments()->delete();
+                $feedPost->delete();
             }
-            
-            // Delete all answers
-            $question->answers()->delete();
-            
-            // Delete the question
-            $question->delete();
-
-            return response()->json(['message' => 'Pitanje je uspješno obrisano.']);
-        } catch (\Exception $e) {
-            \Log::error('Error deleting question: ' . $e->getMessage());
-            return response()->json(['message' => 'Greška pri brisanju pitanja.'], 500);
         }
+        
+        // Delete all answers
+        $question->answers()->delete();
+        
+        // Delete the question
+        $question->delete();
+
+        return response()->json(['message' => 'Pitanje je uspješno obrisano.']);
     }
 
     public function answers(Question $question): JsonResponse

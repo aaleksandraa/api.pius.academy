@@ -6,12 +6,10 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
-use Spatie\MediaLibrary\HasMedia;
-use Spatie\MediaLibrary\InteractsWithMedia;
 
-class FeedPost extends Model implements HasMedia
+class FeedPost extends Model
 {
-    use HasFactory, InteractsWithMedia;
+    use HasFactory;
 
     protected $fillable = [
         'author_id',
@@ -36,12 +34,6 @@ class FeedPost extends Model implements HasMedia
     public function comments(): HasMany
     {
         return $this->hasMany(FeedComment::class, 'post_id')->orderBy('created_at');
-    }
-
-    public function registerMediaCollections(): void
-    {
-        $this->addMediaCollection('images')
-            ->singleFile();
     }
 
     public function scopePinned($query)
