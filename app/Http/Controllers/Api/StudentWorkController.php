@@ -99,14 +99,27 @@ class StudentWorkController extends Controller
     {
         $this->authorize('delete', $studentWork);
         
-        // Delete associated feed post if exists
-        if ($studentWork->feed_post_id) {
-            FeedPost::where('id', $studentWork->feed_post_id)->delete();
-        }
-        
-        $studentWork->delete();
+        try {
+            // Delete associated feed post if exists
+            if ($studentWork->feed_post_id) {
+                $feedPost = FeedPost::find($studentWork->feed_post_id);
+                if ($feedPost) {
+                    $feedPost->comments()->delete();
+                    $feedPost->delete();
+                }
+            }
+            
+            // Delete all feedback
+            $studentWork->feedback()->delete();
+            
+            // Delete the work
+            $studentWork->delete();
 
-        return response()->json(['message' => 'Rad je uspješno obrisan.']);
+            return response()->json(['message' => 'Rad je uspješno obrisan.']);
+        } catch (\Exception $e) {
+            \Log::error('Error deleting student work: ' . $e->getMessage());
+            return response()->json(['message' => 'Greška pri brisanju rada.'], 500);
+        }
     }
 
     public function feedback(StudentWork $studentWork): JsonResponse

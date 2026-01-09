@@ -104,14 +104,14 @@ class PushNotificationService
             ])->post("https://fcm.googleapis.com/v1/projects/{$this->projectId}/messages:send", $message);
 
             if ($response->successful()) {
-                Log::info("Push notification sent successfully");
+                Log::info("Push notification sent successfully to token: " . substr($token, 0, 20) . "...");
                 return true;
             } else {
                 Log::error("FCM error: " . $response->body());
                 
                 // Remove invalid token
-                $error = $response->json('error.details.0.errorCode') ?? '';
-                if (in_array($error, ['UNREGISTERED', 'INVALID_ARGUMENT'])) {
+                $errorCode = $response->json('error.details.0.errorCode') ?? $response->json('error.status') ?? '';
+                if (in_array($errorCode, ['UNREGISTERED', 'INVALID_ARGUMENT', 'NOT_FOUND'])) {
                     PushToken::where('token', $token)->delete();
                     Log::info("Removed invalid token");
                 }
@@ -148,27 +148,46 @@ class PushNotificationService
         try {
             $credentials = json_decode(file_get_contents($this->credentialsPath), true);
             
-            // Create JWT
-            $header = base64_encode(json_encode(['alg' => 'RS256', 'typ' => 'JWT']));
+            if (!$credentials || !isset($credentials['private_key']) || !isset($credentials['client_email'])) {
+                Log::error("Invalid Firebase credentials file");
+                return null;
+            }
+
+            // Create JWT header
+            $header = json_encode(['alg' => 'RS256', 'typ' => 'JWT']);
+            $headerEncoded = $this->base64UrlEncode($header);
             
+            // Create JWT payload
             $now = time();
-            $claims = [
+            $payload = json_encode([
                 'iss' => $credentials['client_email'],
                 'scope' => 'https://www.googleapis.com/auth/firebase.messaging',
                 'aud' => 'https://oauth2.googleapis.com/token',
                 'iat' => $now,
                 'exp' => $now + 3600,
-            ];
-            $payload = base64_encode(json_encode($claims));
+            ]);
+            $payloadEncoded = $this->base64UrlEncode($payload);
             
             // Sign with private key
-            $privateKey = openssl_pkey_get_private($credentials['private_key']);
             $signature = '';
-            openssl_sign("$header.$payload", $signature, $privateKey, OPENSSL_ALGO_SHA256);
-            $signature = base64_encode($signature);
+            $privateKey = openssl_pkey_get_private($credentials['private_key']);
             
-            // URL-safe base64
-            $jwt = str_replace(['+', '/', '='], ['-', '_', ''], "$header.$payload.$signature");
+            if (!$privateKey) {
+                Log::error("Failed to load private key from credentials");
+                return null;
+            }
+            
+            openssl_sign(
+                $headerEncoded . '.' . $payloadEncoded,
+                $signature,
+                $privateKey,
+                OPENSSL_ALGO_SHA256
+            );
+            
+            $signatureEncoded = $this->base64UrlEncode($signature);
+            
+            // Create JWT
+            $jwt = $headerEncoded . '.' . $payloadEncoded . '.' . $signatureEncoded;
             
             // Exchange JWT for access token
             $response = Http::asForm()->post('https://oauth2.googleapis.com/token', [
@@ -177,7 +196,9 @@ class PushNotificationService
             ]);
 
             if ($response->successful()) {
-                return $response->json('access_token');
+                $accessToken = $response->json('access_token');
+                Log::info("Successfully obtained FCM access token");
+                return $accessToken;
             } else {
                 Log::error("Failed to get access token: " . $response->body());
                 return null;
@@ -187,4 +208,13 @@ class PushNotificationService
             return null;
         }
     }
+
+    /**
+     * Base64 URL encode
+     */
+    private function base64UrlEncode(string $data): string
+    {
+        return rtrim(strtr(base64_encode($data), '+/', '-_'), '=');
+    }
 }
+
