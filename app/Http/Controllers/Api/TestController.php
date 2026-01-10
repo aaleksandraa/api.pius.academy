@@ -230,6 +230,12 @@ class TestController extends Controller
         ]);
     }
 
+    // Educator results - same as admin
+    public function educatorResults(): JsonResponse
+    {
+        return $this->allResults();
+    }
+
     private function formatTest(Test $test, bool $withQuestions = false): array
     {
         $data = [

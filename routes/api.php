@@ -89,6 +89,11 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/materials', [MaterialController::class, 'index']);
     Route::get('/materials/check-enabled', [MaterialController::class, 'checkEnabled']);
 
+    // Educator routes - can view test results
+    Route::middleware('role:admin,educator')->group(function () {
+        Route::get('/educator/test-results', [TestController::class, 'educatorResults']);
+    });
+
     // Admin routes
     Route::middleware('role:admin')->prefix('admin')->group(function () {
         // Users
