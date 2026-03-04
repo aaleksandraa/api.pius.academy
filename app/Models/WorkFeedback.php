@@ -15,6 +15,7 @@ class WorkFeedback extends Model
     protected $fillable = [
         'work_id',
         'educator_id',
+        'feed_comment_id',
         'feedback_text',
         'audio_url',
     ];

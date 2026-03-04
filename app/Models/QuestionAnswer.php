@@ -13,6 +13,7 @@ class QuestionAnswer extends Model
     protected $fillable = [
         'question_id',
         'educator_id',
+        'feed_comment_id',
         'answer_text',
         'audio_url',
     ];

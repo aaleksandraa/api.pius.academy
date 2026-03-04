@@ -11,11 +11,19 @@ class NotificationController extends Controller
 {
     public function index(Request $request): JsonResponse
     {
-        $notifications = Notification::where('user_id', $request->user()->id)
+        $query = Notification::where('user_id', $request->user()->id)
             ->with('fromUser')
-            ->orderByDesc('created_at')
-            ->limit(50)
-            ->get();
+            ->orderByDesc('created_at');
+
+        // Filter by 'since' parameter if provided (for in-app notifications polling)
+        if ($request->has('since')) {
+            $query->where('created_at', '>', $request->input('since'));
+        } else {
+            // Default: limit to 50 most recent
+            $query->limit(50);
+        }
+
+        $notifications = $query->get();
 
         $unreadCount = Notification::where('user_id', $request->user()->id)
             ->where('is_read', false)

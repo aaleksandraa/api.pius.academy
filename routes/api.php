@@ -56,6 +56,7 @@ Route::middleware('auth:sanctum')->group(function () {
 
     // Feed
     Route::get('/feed', [FeedController::class, 'index']);
+    Route::get('/feed/check-new', [FeedController::class, 'checkNew']);
     Route::post('/feed', [FeedController::class, 'store']);
     Route::put('/feed/{feedPost}', [FeedController::class, 'update']);
     Route::delete('/feed/{feedPost}', [FeedController::class, 'destroy']);

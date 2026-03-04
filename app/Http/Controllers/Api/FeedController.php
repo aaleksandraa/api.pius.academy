@@ -7,7 +7,9 @@ use App\Models\FeedPost;
 use App\Models\FeedComment;
 use App\Models\Notification;
 use App\Models\Question;
+use App\Models\QuestionAnswer;
 use App\Models\StudentWork;
+use App\Models\WorkFeedback;
 use App\Models\User;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -28,6 +30,25 @@ class FeedController extends Controller
                 'last_page' => $posts->lastPage(),
                 'total' => $posts->total(),
             ],
+        ]);
+    }
+
+    /**
+     * Check if there are new posts since given timestamp
+     */
+    public function checkNew(Request $request): JsonResponse
+    {
+        $since = $request->query('since');
+        
+        if (!$since) {
+            return response()->json(['has_new' => false]);
+        }
+
+        $hasNew = FeedPost::where('created_at', '>', $since)->exists();
+
+        return response()->json([
+            'has_new' => $hasNew,
+            'count' => $hasNew ? FeedPost::where('created_at', '>', $since)->count() : 0,
         ]);
     }
 
@@ -176,6 +197,7 @@ class FeedController extends Controller
         ]);
 
         $comment->load('author');
+        $this->syncCommentToLinkedContent($feedPost, $comment);
 
         // Notify post author about new comment (if not commenting on own post)
         if ($feedPost->author_id !== $request->user()->id) {
@@ -230,6 +252,7 @@ class FeedController extends Controller
         ]);
 
         $feedComment->update($validated);
+        $this->syncUpdatedCommentToLinkedContent($feedComment);
 
         return response()->json([
             'message' => 'Komentar je uspješno ažuriran.',
@@ -289,5 +312,54 @@ class FeedController extends Controller
             'audio_url' => $comment->audio_url,
             'created_at' => $comment->created_at,
         ];
+    }
+
+    private function syncCommentToLinkedContent(FeedPost $feedPost, FeedComment $comment): void
+    {
+        if ($feedPost->post_type === 'question') {
+            $question = Question::where('feed_post_id', $feedPost->id)->first();
+            if ($question) {
+                $question->answers()->create([
+                    'educator_id' => $comment->author_id,
+                    'feed_comment_id' => $comment->id,
+                    'answer_text' => $comment->content ?? '',
+                    'audio_url' => $comment->audio_url,
+                ]);
+                $question->update(['is_answered' => true]);
+            }
+            return;
+        }
+
+        if ($feedPost->post_type === 'work') {
+            $work = StudentWork::where('feed_post_id', $feedPost->id)->first();
+            if ($work) {
+                $work->feedback()->create([
+                    'educator_id' => $comment->author_id,
+                    'feed_comment_id' => $comment->id,
+                    'feedback_text' => $comment->content ?? '',
+                    'audio_url' => $comment->audio_url,
+                ]);
+            }
+        }
+    }
+
+    private function syncUpdatedCommentToLinkedContent(FeedComment $feedComment): void
+    {
+        $feedComment->loadMissing('post');
+
+        if (!$feedComment->post) {
+            return;
+        }
+
+        if ($feedComment->post->post_type === 'question') {
+            QuestionAnswer::where('feed_comment_id', $feedComment->id)
+                ->update(['answer_text' => $feedComment->content ?? '']);
+            return;
+        }
+
+        if ($feedComment->post->post_type === 'work') {
+            WorkFeedback::where('feed_comment_id', $feedComment->id)
+                ->update(['feedback_text' => $feedComment->content ?? '']);
+        }
     }
 }
